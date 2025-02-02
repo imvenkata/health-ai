@@ -1,0 +1,9 @@
+adalflow  # Workflow automation and optimization library
+qdrant-client  # Qdrant vector database client
+sentence-transformers  # For generating embeddings (e.g., BAAI/bge-large-en-v1.5)
+requests  # For making HTTP requests to DeepSeek API
+python-dotenv  # For loading environment variables from .env file
+langchain_community
+langchain
+python-docx
+llama-index
