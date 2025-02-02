@@ -1,18 +1,28 @@
 import os
 import logging
-from typing import Union, List, Dict
+from typing import List, Dict
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from dotenv import load_dotenv
 import requests
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(title="RAG Inference API", description="API for querying the RAG pipeline")
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Allow requests from your frontend
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
 
 # Enhanced prompt template that explicitly asks for citations
 GENERATOR_TEMPLATE = """
@@ -24,14 +34,18 @@ Question: {question}
 Please provide a detailed answer with citations from the source documents.
 """
 
-# Data model for the API request
+# Data models
+class Citation(BaseModel):
+    source: str
+    page: int  # Page number as an integer
+    text: str  # Snippet of the relevant text
+
 class QueryRequest(BaseModel):
     query: str
 
-# Data model for the API response
 class QueryResponse(BaseModel):
     answer: str
-    citations: List[Dict[str, str]]
+    references: List[Citation]  # List of citations
     confidence_score: float
 
 # Initialize logging
@@ -50,7 +64,11 @@ def initialize_components():
 
     # Initialize Qdrant client
     if qdrant_mode == "local":
-        client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=60)
+        client = QdrantClient(
+            url=qdrant_url,
+            api_key=qdrant_api_key,
+            timeout=60,
+        )
     else:
         client = QdrantClient(url=qdrant_cloud_url, api_key=qdrant_api_key, timeout=60)
 
@@ -58,7 +76,7 @@ def initialize_components():
     embedding_model = HuggingFaceEmbeddings(
         model_name=embedding_model_name,
         model_kwargs={"device": "cpu"},  # Use "cuda" if you have a GPU
-        encode_kwargs={"normalize_embeddings": True}
+        encode_kwargs={"normalize_embeddings": True},
     )
 
     return client, collection_name, embedding_model
@@ -72,16 +90,18 @@ def query_deepseek_api(prompt: str) -> str:
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
         raise ValueError("DeepSeek API key not found in environment variables.")
+    
     url = "https://api.deepseek.com/v1/chat/completions"  # Replace with the actual DeepSeek API endpoint
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
     data = {
         "model": "deepseek-chat",  # Replace with the correct model name
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0
+        "temperature": 0,
     }
+
     try:
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
@@ -91,39 +111,28 @@ def query_deepseek_api(prompt: str) -> str:
         logger.error(f"Failed to query DeepSeek API: {e}")
         return "An error occurred while generating the response."
 
-
-# Define the Citation and QueryResponse models
-class Citation(BaseModel):
-    text: str
-    source: str
-    page: Union[str, int]  # Allow both string and integer
-
-class QueryResponse(BaseModel):
-    answer: str
-    citations: List[Citation]
-    confidence_score: float
-
 # Helper function to format citations
-def format_citations(source_documents: List[dict]) -> List[Dict[str, str]]:
+def format_citations(source_documents: List[Dict]) -> List[Dict]:
     """Formats source documents into structured citations."""
     citations = []
-    for idx, doc in enumerate(source_documents):
+    for doc in source_documents:
         citation = {
-            'text': doc["payload"]["text"][:1000] + '...' if len(doc["payload"]["text"]) > 1000 else doc["payload"]["text"],
-            'source': doc["payload"]["metadata"].get('source', 'Unknown'),
-            'page': str(doc["payload"]["metadata"].get('page', 'N/A'))  # Convert page to string
+            "source": doc["payload"]["metadata"].get("source", "Unknown"),
+            "page": int(doc["payload"]["metadata"].get("page", 0)),  # Default to 0 if page is missing
+            "text": doc["payload"]["text"][:1000] + "..." if len(doc["payload"]["text"]) > 1000 else doc["payload"]["text"],
         }
         citations.append(citation)
     return citations
 
 # API endpoint to handle queries
-
-# Update the query_rag_pipeline function
 @app.post("/query", response_model=QueryResponse)
 async def query_rag_pipeline(request: QueryRequest):
     """Endpoint to query the RAG pipeline."""
     try:
-        query = request.query
+        query = request.query.strip()
+        if not query:
+            raise HTTPException(status_code=400, detail="Query cannot be empty.")
+
         logger.info(f"Received query: {query}")
 
         # Generate query embedding
@@ -143,7 +152,7 @@ async def query_rag_pipeline(request: QueryRequest):
             {
                 "id": hit.id,
                 "score": hit.score,
-                "payload": hit.payload
+                "payload": hit.payload,
             }
             for hit in search_result
         ]
@@ -151,7 +160,7 @@ async def query_rag_pipeline(request: QueryRequest):
         # Format the context from retrieved documents with citation numbers
         context_with_citations = []
         for idx, doc in enumerate(source_docs, start=1):
-            snippet = doc["payload"]["text"][:200] + '...' if len(doc["payload"]["text"]) > 200 else doc["payload"]["text"]
+            snippet = doc["payload"]["text"][:200] + "..." if len(doc["payload"]["text"]) > 200 else doc["payload"]["text"]
             context_with_citations.append(f"[{idx}] {snippet}")
         context = "\n\n".join(context_with_citations)
 
@@ -164,20 +173,25 @@ async def query_rag_pipeline(request: QueryRequest):
         logger.info("Received response from DeepSeek API.")
 
         # Format citations from source documents
-        citations = format_citations(source_docs)
+        references = format_citations(source_docs)
 
         # Calculate a simple confidence score based on citation count
-        confidence_score = min(len(citations) / 5.0, 1.0)
+        confidence_score = min(len(references) / 5.0, 1.0)
 
         # Return the response
         return QueryResponse(
             answer=answer,
-            citations=citations,
-            confidence_score=confidence_score
+            references=references,
+            confidence_score=confidence_score,
         )
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTP error: {http_exc.detail}")
+        raise http_exc
     except Exception as e:
         logger.error(f"Failed to process query: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An error occurred while processing your query: {str(e)}")
+
 # Root endpoint
 @app.get("/")
 async def root():

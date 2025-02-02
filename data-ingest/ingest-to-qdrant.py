@@ -38,13 +38,15 @@ def get_log_level(level: Union[str, int]) -> int:
 @dataclass
 class DocumentIngestionConfig:
     """Configuration class for document ingestion process."""
-    input_dir: Path = field(default_factory=lambda: Path(os.getenv("INPUT_DIR", "/path/to/legal/documents")))
+    input_dir: Path = field(default_factory=lambda: Path(os.getenv("INPUT_DIR", "data-ingest/data/documents")))
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "500"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "50"))
-    embedding_model: str = os.getenv("EMBEDDING_MODEL", "huggingface")
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5")
+    qdrant_mode: str = os.getenv("QDRANT_MODE", "local")
     qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
+    qdrant_cloud_url: str = os.getenv("QDRANT_CLOUD_URL", "")
     qdrant_api_key: str = os.getenv("QDRANT_API_KEY", "")
-    collection_name: str = os.getenv("QDRANT_COLLECTION_NAME", "legal_documents")
+    collection_name: str = os.getenv("QDRANT_COLLECTION_NAME", "medical-collections")
     log_level: int = field(default_factory=lambda: get_log_level(os.getenv("LOG_LEVEL", "INFO")))
 
 @dataclass
@@ -70,13 +72,10 @@ class DocumentProcessor:
     
     def _select_embedding_model(self) -> Any:
         """Select and initialize embedding model based on configuration."""
-        if self.config.embedding_model.lower() == "huggingface":
-            return HuggingFaceEmbedding(
-                model_name="BAAI/bge-large-en-v1.5",
-                trust_remote_code=True
-            )
-        else:
-            raise ValueError(f"Unsupported embedding model: {self.config.embedding_model}")
+        return HuggingFaceEmbedding(
+            model_name=self.config.embedding_model,
+            trust_remote_code=True
+        )
     
     def load_documents(self) -> List[LangChainDocument]:
         """Load PDF and DOCX documents from the specified input directory."""
@@ -152,12 +151,19 @@ class DocumentProcessor:
     
     def store_in_qdrant(self, chunks: List[Dict], embeddings: List[List[float]]):
         """Store document chunks and embeddings in Qdrant DB."""
-        # Initialize Qdrant client
-        client = QdrantClient(
-            url=self.config.qdrant_url,
-            api_key=self.config.qdrant_api_key,
-            timeout=120  # Increase timeout to handle larger payloads
-        )
+        # Initialize Qdrant client based on mode
+        if self.config.qdrant_mode == "local":
+            client = QdrantClient(
+                url=self.config.qdrant_url,
+                api_key=self.config.qdrant_api_key,
+                timeout=120  # Increase timeout to handle larger payloads
+            )
+        else:
+            client = QdrantClient(
+                url=self.config.qdrant_cloud_url,
+                api_key=self.config.qdrant_api_key,
+                timeout=120  # Increase timeout to handle larger payloads
+            )
         
         # Check if the collection exists
         collection_name = self.config.collection_name

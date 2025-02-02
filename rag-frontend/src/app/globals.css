@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styles */
+:root {
+  --background: #0a0a0a; /* Dark background */
+  --foreground: #ffffff; /* White text */
+  --accent: #4f46e5; /* Accent color (e.g., blue) */
+  --border: #333333; /* Subtle border color */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #ffffff; /* Light background */
+    --foreground: #171717; /* Dark text */
+    --accent: #4f46e5; /* Accent color */
+    --border: #cccccc; /* Light border */
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Geist', sans-serif; /* Use Geist font for a modern look */
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+/* Input Field Styling */
+input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 16px;
+  transition: border-color 0.3s ease;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Button Styling */
+button {
+  padding: 10px 20px;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+button:hover {
+  background: #4338ca; /* Darker shade of accent color */
+}
+
+button:disabled {
+  background: #888888; /* Grayed-out button when disabled */
+  cursor: not-allowed;
+}
+
+/* Answer Section Styling */
+.answer {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05); /* Slightly lighter background for contrast */
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--foreground);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.references {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--foreground);
+}
+
+.references ul {
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.references a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.references a:hover {
+  text-decoration: underline;
+}
+
+/* Confidence Score Styling */
+.confidence-score {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #b3b3b3; /* Light gray for secondary info */
+}

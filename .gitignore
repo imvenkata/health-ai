@@ -1,0 +1,124 @@
+# Python virtual environments
+venv*/
+*venv/
+.env/
+.venv/
+env/
+data-ingest/.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Next.js frontend
+rag-frontend/.next/
+rag-frontend/out/
+rag-frontend/build/
+rag-frontend/node_modules/
+rag-frontend/.env*.local
+rag-frontend/.vercel
+rag-frontend/*.tsbuildinfo
+rag-frontend/next-env.d.ts
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+*.sublime-workspace
+*.sublime-project
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Data files
+data/
+*.csv
+*.json
+*.xlsx
+*.parquet
+
+# Vector store files
+*.faiss
+*.hdf5
+*.index
+
+# Docker
+.docker/
+docker-volumes/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+*.whl
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Documentation builds
+docs/_build/
+site/
+
+# Component-specific virtual environments
+data-ingestion/venv/
+query-engine/venv/
+doc-integration/venv/
+
+# Dependencies
+*/node_modules/
+*/package-lock.json
+*/yarn.lock
+*/pnpm-lock.yaml
+
+# Component-specific environment files
+data-ingest/.env
+query-engine/.env
+
+# Local development SSL certificates
+*.pem
+*.key
+*.crt
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Qdrant files
+**/qdrant/**/segments/
+**/qdrant/**/*.log
+**/qdrant/**/MANIFEST*
+**/qdrant/**/OPTIONS*
+**/qdrant/**/CURRENT
+**/qdrant/**/LOG
+**/qdrant/**/LOCK
+**/qdrant/storage
+**/qdrant/snapshots
+**/qdrant/collections/**/payload_index/
