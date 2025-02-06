@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from qdrant_client import QdrantClient
 from langchain_community.embeddings import HuggingFaceEmbeddings
 import requests
+import re
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -33,6 +34,27 @@ Context: {context}
 Question: {question}
 Please provide a detailed answer with citations from the source documents.
 """
+
+def format_citations(source_documents: List[Dict]) -> List[Dict]:
+    """Formats source documents into structured citations with unique IDs."""
+    citations = []
+    for idx, doc in enumerate(source_documents, start=1):
+        citation = {
+            "id": f"ref-{idx}",  # Unique ID for each reference
+            "source": doc["payload"]["metadata"].get("source", "Unknown"),
+            "page": int(doc["payload"]["metadata"].get("page", 0)),  # Default to 0 if page is missing
+            "text": doc["payload"]["text"][:1000] + "..." if len(doc["payload"]["text"]) > 1000 else doc["payload"]["text"],
+        }
+        citations.append(citation)
+    return citations
+
+def clean_response(response: str) -> str:
+    """Remove <br> tags and other unnecessary HTML formatting."""
+    # Replace <br> tags with spaces
+    response = re.sub(r"<br\s*/?>", " ", response)
+    # Replace multiple spaces with a single space
+    response = re.sub(r"\s+", " ", response).strip()
+    return response
 
 # Data models
 class Citation(BaseModel):
@@ -170,6 +192,12 @@ async def query_rag_pipeline(request: QueryRequest):
 
         # Query DeepSeek API
         answer = query_deepseek_api(prompt)
+
+        # Format the response for better readability
+        # answer = format_response(answer)
+        # Clean up the response
+        answer = clean_response(answer)
+
         logger.info("Received response from DeepSeek API.")
 
         # Format citations from source documents
